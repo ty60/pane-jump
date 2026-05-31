@@ -8,6 +8,16 @@
 #
 # Install: chmod +x ~/.tmux/scripts/pane-jump.sh
 # Bind:    bind-key f display-popup -E -w 80% -h 60% "~/.tmux/scripts/pane-jump.sh"
+#
+# Perf note (startup/dismiss latency): this script is NOT the bottleneck. Its
+# data pipeline (list-panes + awk + sort) runs in ~15-20ms, and the popup shell
+# is non-interactive/non-login so there is no rc-sourcing cost. Two things
+# dominate perceived lag, both outside this file:
+#   1. ESC-to-dismiss delay = tmux `escape-time` (set it low, e.g.
+#      `set -sg escape-time 10`; a conf edit needs `source-file` to take effect).
+#   2. Intermittent ~200-400ms spike on the FIRST tmux op after the machine has
+#      been idle — affects every tmux command equally, independent of this
+#      script. Likely macOS App Nap / process throttling on the tmux server.
 
 set -u
 
