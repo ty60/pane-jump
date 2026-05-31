@@ -7,11 +7,18 @@
 # searchable.
 #
 # Install: chmod +x ~/.tmux/scripts/pane-jump.sh
-# Bind:    bind-key j display-popup -E -w 80% -h 60% "~/.tmux/scripts/pane-jump.sh"
+# Bind:    bind-key f display-popup -E -w 80% -h 60% "~/.tmux/scripts/pane-jump.sh"
 
 set -u
 
 TAB=$'\t'
+
+# Colon-free byte range covering every control char (0x01-0x1F plus 0x7F).
+# We can't use #{s|[[:cntrl:]]|...|} below: the colons inside the POSIX class
+# collide with the substitution modifier's ':' separator, so tmux (3.5a) fails
+# to compile the regex and silently yields an empty string. This range strips
+# the same characters — including TAB and newline — without any colons.
+CNTRL=$'[\001-\037\177]'
 
 # Pull every pane in the current session as TAB-separated raw fields:
 #   cmd, pane_id, window_id, window_index, pane_index, path, title
@@ -21,7 +28,7 @@ TAB=$'\t'
 # cannot split one row into two — otherwise an attacker can inject a forged
 # row that, when selected, hijacks select-pane to a pane they choose.
 panes=$(tmux list-panes -s -F \
-  "#{pane_current_command}${TAB}#{pane_id}${TAB}#{window_id}${TAB}#{window_index}${TAB}#{pane_index}${TAB}#{s|[[:cntrl:]]| |:pane_current_path}${TAB}#{s|[[:cntrl:]]| |:pane_title}" \
+  "#{pane_current_command}${TAB}#{pane_id}${TAB}#{window_id}${TAB}#{window_index}${TAB}#{pane_index}${TAB}#{s|${CNTRL}| |:pane_current_path}${TAB}#{s|${CNTRL}| |:pane_title}" \
   2>/dev/null) || exit 0
 
 [ -z "$panes" ] && exit 0
@@ -53,8 +60,8 @@ formatted=$(printf '%s\n' "$panes" | awk -F'\t' -v OFS='\t' '
     # Display: "win:pane cmd  path  (title)".
     # pane_title often defaults to the hostname and is mostly noise — to drop
     # it, comment the line below and uncomment the next one.
-    disp = widx ":" pidx " " cmd "  " path "  (" title ")";
-    # disp = widx ":" pidx " " cmd "  " path;
+    # disp = widx ":" pidx " " cmd "  " path "  (" title ")";
+    disp = widx ":" pidx " " cmd "  " path;
     print key, pid, wid, disp;
   }
 ')
